@@ -3,18 +3,20 @@ package io.github.nexalloy.morphe.youtube.video.speed.custom
 import app.morphe.extension.youtube.patches.components.PlaybackSpeedMenuFilter
 import app.morphe.extension.youtube.patches.playback.speed.CustomPlaybackSpeedPatch
 import app.morphe.extension.youtube.patches.playback.speed.CustomPlaybackSpeedPatch.customPlaybackSpeeds
+import de.robv.android.xposed.XC_MethodReplacement
 import io.github.nexalloy.invokeOriginalMethod
-import io.github.nexalloy.patch
-import io.github.nexalloy.scopedHook
 import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.addLithoFilter
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_34_or_greater
 import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook.addRecyclerViewTreeHook
 import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook.recyclerViewTreeHook
 import io.github.nexalloy.morphe.youtube.video.information.doOverridePlaybackSpeed
 import io.github.nexalloy.morphe.youtube.video.speed.settingsMenuVideoSpeedGroup
+import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 import java.lang.reflect.Method
 
 private var INSTANCE: Any? = null
@@ -35,7 +37,8 @@ val CustomPlaybackSpeed = patch(
             SwitchPreference("morphe_custom_speed_menu"),
             SwitchPreference("morphe_restore_old_speed_menu"),
             TextPreference(
-                "morphe_custom_playback_speeds", inputType = InputType.TEXT_MULTI_LINE
+                "morphe_custom_playback_speeds",
+                inputType = InputType.TEXT_MULTI_LINE
             ),
         )
     )
@@ -48,8 +51,15 @@ val CustomPlaybackSpeed = patch(
         }
     })
 
+    // Turn off client side flag that use server provided min/max speeds.
+    if (is_20_34_or_greater) {
+        ServerSideMaxSpeedFeatureFlagFingerprint.hookMethod(XC_MethodReplacement.returnConstant(false))
+    }
+
+    // region Force old playback speed.
+
     // Replace the speeds float array with custom speeds.
-    // These speeds are used if the speed menu is immediately opened after a video is opened.
+
     ::speedArrayGeneratorFingerprint.hookMethod {
         val source = ::speedsFloatArrayField.field.get(null) as FloatArray
         val chunkSize = source.size
@@ -74,8 +84,6 @@ val CustomPlaybackSpeed = patch(
         }
     }
 
-    // region Force old video quality menu.
-
     GetOldPlaybackSpeedsFingerprint.hookMethod {
         before {
             INSTANCE = it.thisObject
@@ -83,9 +91,13 @@ val CustomPlaybackSpeed = patch(
     }
     showOldPlaybackSpeedMenuMethod = ::showOldPlaybackSpeedMenuFingerprint.method
 
+
+    // Fix restore old playback speed menu.
+    // TODO
+
     // endregion
 
-    // Close the unpatched playback dialog and show the modern custom dialog.
+    // Close the unpatched playback dialog and show the custom speeds.
     addRecyclerViewTreeHook.add { CustomPlaybackSpeedPatch.onFlyoutMenuCreate(it) }
 
     // Required to check if the playback speed menu is currently shown.

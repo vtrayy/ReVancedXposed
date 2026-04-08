@@ -7,6 +7,7 @@ import io.github.nexalloy.RequireAppVersion
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.fingerprint
+import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.parameters
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.returns
@@ -37,6 +38,15 @@ val speedsFloatArrayField = findFieldDirect {
         it.field.typeSign == "[F"
     }.field
 }
+
+@RequireAppVersion("20.34.00")
+internal object ServerSideMaxSpeedFeatureFlagFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    filters = listOf(
+        literal(45719140L)
+    )
+)
 
 internal val speedLimiterFingerprint = findMethodDirect {
     runCatching {
